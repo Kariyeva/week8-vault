@@ -1,14 +1,12 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
-declare_id!("EbojNUfh9Jk6dyZaaQAJWofbdnkvdxfQbeAPq6iWoHAu");
+declare_id!("2mrQN45m6naSyYuT9cErK17FBejerB81ixmL7czQav4G");
 
 #[program]
 pub mod simple_vault {
     use super::*;
 
-    /// Создать vault для конкретного SPL-токена.
-    /// Создаёт: VaultState PDA, vault_token_account PDA, share_mint PDA.
     pub fn initialize_vault(ctx: Context<InitializeVault>) -> Result<()> {
         let vault = &mut ctx.accounts.vault_state;
         vault.admin = ctx.accounts.admin.key();
@@ -16,63 +14,67 @@ pub mod simple_vault {
         vault.vault_token_account = ctx.accounts.vault_token_account.key();
         vault.share_mint = ctx.accounts.share_mint.key();
         vault.bump = ctx.bumps.vault_state;
+        vault.paused = false;
 
-        msg!("Vault initialized for mint: {}", vault.token_mint);
+        msg!("Vault initialized: {}", vault.key());
         Ok(())
     }
 
-    /// Создать личную «карточку» пользователя в vault.
-    /// У каждого пользователя ровно одна карточка (PDA от vault + user).
     pub fn create_user_card(ctx: Context<CreateUserCard>) -> Result<()> {
         let card = &mut ctx.accounts.user_card;
         card.vault = ctx.accounts.vault_state.key();
         card.owner = ctx.accounts.user.key();
         card.bump = ctx.bumps.user_card;
+        card.created_at = Clock::get()?.unix_timestamp;
 
-        msg!("User card created for: {}", card.owner);
+        msg!("User card created: {}", card.key());
+        msg!("Created at: {}", card.created_at);
+        Ok(())
+    }
+
+    pub fn close_user_card(ctx: Context<CloseUserCard>) -> Result<()> {
+        msg!("Closing card for: {}", ctx.accounts.owner.key());
+        Ok(())
+    }
+
+    pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        ctx.accounts.vault_state.paused = paused;
+        msg!("Vault paused: {}", paused);
         Ok(())
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Accounts
-// ─────────────────────────────────────────────────────────────────────────────
-
 #[derive(Accounts)]
 pub struct InitializeVault<'info> {
-    /// VaultState PDA — seeds: ["vault", token_mint]
     #[account(
         init,
         payer = admin,
         space = VaultState::LEN,
         seeds = [b"vault", token_mint.key().as_ref()],
-        bump,
+        bump
     )]
     pub vault_state: Account<'info, VaultState>,
 
-    /// Token account, принадлежащий vault PDA
     #[account(
         init,
         payer = admin,
         token::mint = token_mint,
         token::authority = vault_state,
         seeds = [b"vault_tokens", token_mint.key().as_ref()],
-        bump,
+        bump
     )]
     pub vault_token_account: Account<'info, TokenAccount>,
 
-    /// Mint для shares — выпускается vault PDA
     #[account(
         init,
         payer = admin,
         mint::decimals = 6,
         mint::authority = vault_state,
         seeds = [b"share_mint", token_mint.key().as_ref()],
-        bump,
+        bump
     )]
     pub share_mint: Account<'info, Mint>,
 
-    /// SPL-токен, который принимает vault
     pub token_mint: Account<'info, Mint>,
 
     #[account(mut)]
@@ -88,16 +90,16 @@ pub struct CreateUserCard<'info> {
     #[account(
         seeds = [b"vault", vault_state.token_mint.as_ref()],
         bump = vault_state.bump,
+        constraint = !vault_state.paused @ VaultError::VaultPaused
     )]
     pub vault_state: Account<'info, VaultState>,
 
-    /// UserCard PDA — seeds: ["user_card", vault_state, user]
     #[account(
         init,
         payer = user,
         space = UserCard::LEN,
         seeds = [b"user_card", vault_state.key().as_ref(), user.key().as_ref()],
-        bump,
+        bump
     )]
     pub user_card: Account<'info, UserCard>,
 
@@ -107,33 +109,80 @@ pub struct CreateUserCard<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// State
-// ─────────────────────────────────────────────────────────────────────────────
+#[derive(Accounts)]
+pub struct CloseUserCard<'info> {
+    #[account(
+        seeds = [b"vault", vault_state.token_mint.as_ref()],
+        bump = vault_state.bump
+    )]
+    pub vault_state: Account<'info, VaultState>,
+
+    #[account(
+        mut,
+        close = owner,
+        has_one = owner @ VaultError::Unauthorized,
+        constraint = user_card.vault == vault_state.key()
+            @ VaultError::WrongVault,
+        seeds = [
+            b"user_card",
+            vault_state.key().as_ref(),
+            user_card.owner.as_ref()
+        ],
+        bump = user_card.bump
+    )]
+    pub user_card: Account<'info, UserCard>,
+
+    #[account(mut)]
+    pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetPaused<'info> {
+    #[account(
+        mut,
+        seeds = [b"vault", vault_state.token_mint.as_ref()],
+        bump = vault_state.bump,
+        has_one = admin @ VaultError::Unauthorized
+    )]
+    pub vault_state: Account<'info, VaultState>,
+
+    pub admin: Signer<'info>,
+}
 
 #[account]
 #[derive(Default)]
 pub struct VaultState {
-    pub admin: Pubkey,               // 32
-    pub token_mint: Pubkey,          // 32 — SPL-токен vault'а
-    pub vault_token_account: Pubkey, // 32 — PDA для токенов
-    pub share_mint: Pubkey,          // 32 — mint для shares
-    pub bump: u8,                    // 1
+    pub admin: Pubkey,
+    pub token_mint: Pubkey,
+    pub vault_token_account: Pubkey,
+    pub share_mint: Pubkey,
+    pub bump: u8,
+    pub paused: bool,
 }
 
 impl VaultState {
-    pub const LEN: usize = 8 + 32 + 32 + 32 + 32 + 1;
+    pub const LEN: usize = 8 + 32 + 32 + 32 + 32 + 1 + 1;
 }
 
-/// Карточка пользователя в vault.
 #[account]
 #[derive(Default)]
 pub struct UserCard {
-    pub vault: Pubkey, // 32 — к какому vault относится
-    pub owner: Pubkey, // 32 — владелец карточки
-    pub bump: u8,      // 1
+    pub vault: Pubkey,
+    pub owner: Pubkey,
+    pub bump: u8,
+    pub created_at: i64,
 }
 
 impl UserCard {
-    pub const LEN: usize = 8 + 32 + 32 + 1;
+    pub const LEN: usize = 8 + 32 + 32 + 1 + 8;
+}
+
+#[error_code]
+pub enum VaultError {
+    #[msg("Vault is paused")]
+    VaultPaused,
+    #[msg("Only the authorized owner or administrator can do this")]
+    Unauthorized,
+    #[msg("The card belongs to another vault")]
+    WrongVault,
 }

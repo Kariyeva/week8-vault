@@ -1,154 +1,128 @@
-# Simple Vault — практика Anchor
+# Задание 8 — Simple Vault
 
-Учебный контракт на Anchor 0.31.1 (Solana). Сейчас он делает две вещи:
+Учебная программа на Solana с использованием Anchor 0.31.1.
+Программа развёрнута и проверена в Devnet.
 
-1. **Vault создан** — админ создаёт vault для SPL-токена.
-2. **У каждого пользователя своя «карточка»** — пользователь создаёт личный аккаунт (PDA) внутри vault.
+Основа проекта: [vault-dev, ветка students-vault-card](https://github.com/0xnurda/vault-dev/tree/students-vault-card).
 
-Контракт будет дорабатываться (депозиты, вывод и т.д.), поэтому сейчас он намеренно минимальный.
+## Что реализовано
 
----
+В программе создаются настройки хранилища VaultState, токеновый счёт
+хранилища, mint долевых токенов и отдельная карточка каждого пользователя.
 
-## Что делает контракт
+В исходный проект добавлены три доработки:
 
+1. В UserCard добавлено поле created_at. При создании карточки в него
+   записывается время сети через Clock::get()?.unix_timestamp.
+2. Добавлена инструкция close_user_card. Владелец может закрыть свою
+   карточку и получить обратно SOL, которые обеспечивали хранение аккаунта.
+3. В VaultState добавлен флаг paused и инструкция set_paused.
+   Изменять флаг может только администратор. Во время паузы создание
+   карточек запрещено. Закрытие собственной карточки остаётся доступным.
+
+Это каркас хранилища: внесение депозитов, вывод токенов и начисление
+доходности на данном этапе не реализованы.
+
+## Схема аккаунтов
+
+```mermaid
+flowchart TD
+    M["Token Mint"] -->|"seeds: vault + mint"| V["VaultState PDA"]
+    V -->|"token authority"| T["Vault Token Account PDA"]
+    V -->|"mint authority"| S["Share Mint PDA"]
+    V -->|"ссылка vault"| C["UserCard PDA"]
+    U["Пользователь"] -->|"owner, подпись для закрытия"| C
 ```
-initialize_vault    создаёт VaultState PDA, vault token account и share mint
-create_user_card    создаёт UserCard PDA — личную карточку пользователя в vault
-```
 
-### `initialize_vault`
-
-Вызывает админ (платит за аккаунты). Создаёт три аккаунта для выбранного `token_mint`:
-
-| Аккаунт | Seeds | Что хранит |
+| Аккаунт | Seeds | Назначение |
 |---|---|---|
-| `vault_state` | `["vault", token_mint]` | admin, token_mint, адреса token account и share mint, bump |
-| `vault_token_account` | `["vault_tokens", token_mint]` | токен-аккаунт, владелец — vault PDA |
-| `share_mint` | `["share_mint", token_mint]` | mint для shares (6 decimals), authority — vault PDA |
+| VaultState | `vault`, token_mint | Администратор, адреса аккаунтов, bump и paused |
+| Vault Token Account | `vault_tokens`, token_mint | Токеновый счёт, управляемый VaultState PDA |
+| Share Mint | `share_mint`, token_mint | Mint долевых токенов с authority VaultState PDA |
+| UserCard | `user_card`, vault_state, user | Владелец, ссылка на vault, bump и created_at |
 
-### `create_user_card`
+Размер VaultState с дискриминатором — 138 байт.
+Размер UserCard с дискриминатором — 81 байт.
 
-Вызывает любой пользователь (платит за свою карточку). Создаёт `UserCard`:
+## Аккаунты в Devnet
 
-| Поле | Описание |
+| Аккаунт | Explorer |
 |---|---|
-| `vault` | к какому vault относится карточка |
-| `owner` | владелец карточки |
-| `bump` | bump PDA |
+| program | [2mrQN45m6naSyYuT9cErK17FBejerB81ixmL7czQav4G](https://explorer.solana.com/address/2mrQN45m6naSyYuT9cErK17FBejerB81ixmL7czQav4G?cluster=devnet) |
+| admin | [GCELxq8keKXzd1Q27D9KzW5z2nw6JzLHyHH592okLfoy](https://explorer.solana.com/address/GCELxq8keKXzd1Q27D9KzW5z2nw6JzLHyHH592okLfoy?cluster=devnet) |
+| tokenMint | [2iLt1CVRX2ZcAsgHtJnDDBkjCPetAHDuk55p8iQu4uEy](https://explorer.solana.com/address/2iLt1CVRX2ZcAsgHtJnDDBkjCPetAHDuk55p8iQu4uEy?cluster=devnet) |
+| vaultState | [BfC4LMBuMkoU2eEG7MZvksGuWiq9J82wjFZpd5QTA6M3](https://explorer.solana.com/address/BfC4LMBuMkoU2eEG7MZvksGuWiq9J82wjFZpd5QTA6M3?cluster=devnet) |
+| vaultTokenAccount | [AZZbranpy2t6fVWHQLZZv3vHqL271xe6PXpdYChhmCQ1](https://explorer.solana.com/address/AZZbranpy2t6fVWHQLZZv3vHqL271xe6PXpdYChhmCQ1?cluster=devnet) |
+| shareMint | [3ZoddMCTSXe7fbGf8BXLaXhFA3N9p7MdZKuiqNn93HWD](https://explorer.solana.com/address/3ZoddMCTSXe7fbGf8BXLaXhFA3N9p7MdZKuiqNn93HWD?cluster=devnet) |
+| userA | [4ztcQWgZrM8s7ns72eYUMHU5zr653uEXanNgu2Y9EiUH](https://explorer.solana.com/address/4ztcQWgZrM8s7ns72eYUMHU5zr653uEXanNgu2Y9EiUH?cluster=devnet) |
+| userB | [BEm1wq92D36wBREJzB8KNfYeP1w1An9vL1LpY56WUR8B](https://explorer.solana.com/address/BEm1wq92D36wBREJzB8KNfYeP1w1An9vL1LpY56WUR8B?cluster=devnet) |
+| cardA | [9rrPpVYrvMZYqtxYG9Z1rYgiQWYZfcyNaygEDhWdnULt](https://explorer.solana.com/address/9rrPpVYrvMZYqtxYG9Z1rYgiQWYZfcyNaygEDhWdnULt?cluster=devnet) |
+| cardB | [7L5EmFDtmRdyaETeVnXB1DjpKojGCF7pCUdZzrcp99LS](https://explorer.solana.com/address/7L5EmFDtmRdyaETeVnXB1DjpKojGCF7pCUdZzrcp99LS?cluster=devnet) |
 
-Seeds: `["user_card", vault_state, user]` — поэтому у одного пользователя в одном vault
-может быть **только одна** карточка. Повторный вызов завершится ошибкой.
+## Транзакции
 
----
+| Действие | Explorer |
+|---|---|
+| Развёртывание программы | [Открыть](https://explorer.solana.com/tx/EpKwEBAnhkXmp1QuPxKZZ6QkNTeCW6P5bZoki4k4vGAWVddBL7oj4dZp3LqghXZT1SU9ma8U1PBp1u4aiyuqoqv?cluster=devnet) |
+| Инициализация vault | [Открыть](https://explorer.solana.com/tx/5Mtb4MNt6vpsZTEmpb6eQp6bSqX3m5sToEbvr7n7X3c773Q9jj1jXtN7L36hVKyPLVgG2UAk7zct2Z9461VPSEz6?cluster=devnet) |
+| Создание карточки A | [Открыть](https://explorer.solana.com/tx/645PZFW6eTg4iYyPegTSemZFFZAeEt9TdHhtFtQhsRQ73eemsntS9pvJ6jbfMx4vhNLFUihDbNw8h3eEas8EwvgR?cluster=devnet) |
+| Создание карточки B | [Открыть](https://explorer.solana.com/tx/2MrNVxUkE96kK96xqKmyyMwtqQWyP67koVBCPNwGcr8xNpjaSvkcAXPc7BbwJHZMMcPjHLsXjtWnQwGk6zpMbkUi?cluster=devnet) |
+| Включение паузы | [Открыть](https://explorer.solana.com/tx/33euCKHyziqYDYs6hSiSuWszLRte4B5i4yLAgyNLNfWTzW6dd7XPm6Zgra46XC4LBP2QiotJqE5pVHPsQWKHkkhy?cluster=devnet) |
+| Закрытие карточки A | [Открыть](https://explorer.solana.com/tx/3VbSB6rEZYJeU3H9n9e7uxz1vfFCXdzDkiuer7ASdphf7o67s6ETgYGZJDkecF5E4VfsneHWDEqQw2PPBznkZQfg?cluster=devnet) |
+| Снятие паузы | [Открыть](https://explorer.solana.com/tx/M9b2GKL7XEc9nNMYBrje8WfMWSKvZeHHL8msQkjY2QWiYFvF7Hv4RjQXTHgWvxVSq7MVknk28VzjuaQnHL88d5k?cluster=devnet) |
+| Повторное создание карточки A | [Открыть](https://explorer.solana.com/tx/u3iPKxz98wccmEqxo615C9UL9UNP7jxf9Mf4D9muJa96Bu5faakZGGZaSFBoBjmEvZqxWoT9qttbtMs4qyL61aU?cluster=devnet) |
 
-## Требования
+## Проверки
 
-| Инструмент | Версия | Установка |
-|---|---|---|
-| Rust | stable | https://rustup.rs |
-| Solana CLI | 1.18+ | https://docs.solana.com/cli/install-solana-cli-tools |
-| Anchor CLI | 0.31.1 | `cargo install --git https://github.com/coral-xyz/anchor avm --locked && avm install 0.31.1 && avm use 0.31.1` |
-| Node.js | 18+ | https://nodejs.org |
-| Yarn | any | `npm i -g yarn` |
+Сборка `anchor build` и проверка `yarn tsc --noEmit` выполнены успешно.
+В Devnet прошли 9 тестов:
 
-Rust-зависимости (`anchor-lang`, `anchor-spl` 0.31.1) подтянутся сами при `anchor build`.
-JS-зависимости (`@coral-xyz/anchor`, `@solana/web3.js`, `@solana/spl-token`, `mocha`, `chai`, `typescript`) — через `yarn install`.
+1. Создание vault и проверка полномочий PDA.
+2. Создание отдельных карточек двух пользователей и проверка времени сети.
+3. Запрет повторного создания существующей карточки.
+4. Включение паузы администратором.
+5. Запрет снятия паузы посторонним пользователем.
+6. Запрет закрытия чужой карточки.
+7. Закрытие карточки владельцем с проверкой возврата SOL.
+8. Запрет создания карточки во время паузы.
+9. Снятие паузы и успешное повторное создание карточки.
 
----
+Итог запуска: **9 passing (26s)**.
 
-## Быстрый старт
+Адреса и подписи успешных транзакций сохранены в
+[receipts/devnet-tests.json](receipts/devnet-tests.json).
+После проверок пауза выключена, карточки A и B существуют.
 
-### 1. Установить зависимости
+## Запуск
+
+Необходимы Rust, Solana CLI, Anchor 0.31.1, Node.js и Yarn 1.
 
 ```bash
-cd vault-simple
-yarn install
-```
-
-### 2. Сбилдить контракт
-
-```bash
+yarn install --frozen-lockfile
 anchor build
+yarn tsc --noEmit
 ```
 
-Если билдишь **первый раз** (новый keypair):
+Для тестов нужен кошелёк с тестовыми SOL в Devnet.
+Укажите путь к нему и RPC Devnet в переменных окружения:
 
 ```bash
-anchor keys sync   # обновит declare_id! в lib.rs и Anchor.toml
-anchor build       # пересобрать с правильным ID
+export ANCHOR_WALLET="$HOME/.config/solana/id.json"
+read -r -s -p "Devnet RPC URL: " ANCHOR_PROVIDER_URL
+echo
+export ANCHOR_PROVIDER_URL
+yarn run ts-mocha -p ./tsconfig.json -t 1000000 --exit tests/vault.ts
 ```
 
-Артефакты в `target/deploy/`:
-- `simple_vault.so` — программа
-- `simple_vault-keypair.json` — keypair (не коммитить!)
+Тесты взаимодействуют с уже развёрнутой программой.
+Каждый запуск создаёт новый тестовый mint и новый vault,
+расходует тестовые SOL и обновляет receipts/devnet-tests.json.
 
-### 3. Настроить Solana CLI на devnet
+При развёртывании собственной копии нужно создать свой program keypair,
+выполнить `anchor keys sync`, заново собрать и развернуть программу.
 
-```bash
-solana config set --url devnet
-solana address     # твой публичный ключ — запомни его
-solana balance
-```
+## Скриншоты
 
-### 4. Пополнить кошелёк
+![Развёртывание программы](screenshots/vault-deploy.png)
 
-Для деплоя нужно ~2 SOL.
-
-```bash
-solana airdrop 2   # может не сработать из-за rate limit
-```
-
-Если rate limit — используй faucet:
-- https://faucet.solana.com (вставь свой адрес)
-
-### 5. Задеплоить
-
-```bash
-anchor deploy --provider.cluster devnet
-```
-
-### 6. Запустить тесты
-
-```bash
-yarn test
-```
-
-Ожидаемый вывод:
-
-```
-✔ initialize_vault: vault создан
-✔ create_user_card: у каждого пользователя своя карточка
-✔ create_user_card: вторая карточка для того же пользователя — ошибка
-3 passing
-```
-
----
-
-## Структура проекта
-
-```
-vault-simple/
-├── programs/simple_vault/src/lib.rs   # контракт
-├── tests/vault.ts                     # тесты
-├── Anchor.toml
-├── Cargo.toml
-└── package.json
-```
-
----
-
-## Частые ошибки
-
-| Ошибка | Причина | Решение |
-|---|---|---|
-| `Insufficient funds` при деплое | мало SOL | пополни кошелёк на devnet |
-| `AccountNotInitialized` в тестах | программа не задеплоена или другой ID | `anchor keys sync` → `anchor build` → `anchor deploy` |
-| `already in use` при `create_user_card` | у пользователя уже есть карточка | это ожидаемо, карточка одна на пользователя |
-
----
-
-## Задания для практики
-
-1. Добавить в `UserCard` поле `created_at` (`Clock::get()?.unix_timestamp`).
-2. Добавить инструкцию `close_user_card`, которая закрывает карточку и возвращает ренту владельцу.
-3. Запретить создание карточек, если vault поставлен админом на паузу (флаг `paused` в `VaultState`).
+![Результаты тестирования](screenshots/vault-tests.jpg)

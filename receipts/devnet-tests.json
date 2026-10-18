@@ -1,0 +1,26 @@
+{
+  "network": "devnet",
+  "checkedAt": "2026-10-18T20:01:57.465Z",
+  "testsPassed": 9,
+  "addresses": {
+    "program": "2mrQN45m6naSyYuT9cErK17FBejerB81ixmL7czQav4G",
+    "admin": "GCELxq8keKXzd1Q27D9KzW5z2nw6JzLHyHH592okLfoy",
+    "tokenMint": "2iLt1CVRX2ZcAsgHtJnDDBkjCPetAHDuk55p8iQu4uEy",
+    "vaultState": "BfC4LMBuMkoU2eEG7MZvksGuWiq9J82wjFZpd5QTA6M3",
+    "vaultTokenAccount": "AZZbranpy2t6fVWHQLZZv3vHqL271xe6PXpdYChhmCQ1",
+    "shareMint": "3ZoddMCTSXe7fbGf8BXLaXhFA3N9p7MdZKuiqNn93HWD",
+    "userA": "4ztcQWgZrM8s7ns72eYUMHU5zr653uEXanNgu2Y9EiUH",
+    "userB": "BEm1wq92D36wBREJzB8KNfYeP1w1An9vL1LpY56WUR8B",
+    "cardA": "9rrPpVYrvMZYqtxYG9Z1rYgiQWYZfcyNaygEDhWdnULt",
+    "cardB": "7L5EmFDtmRdyaETeVnXB1DjpKojGCF7pCUdZzrcp99LS"
+  },
+  "transactions": {
+    "initialize": "5Mtb4MNt6vpsZTEmpb6eQp6bSqX3m5sToEbvr7n7X3c773Q9jj1jXtN7L36hVKyPLVgG2UAk7zct2Z9461VPSEz6",
+    "createA": "645PZFW6eTg4iYyPegTSemZFFZAeEt9TdHhtFtQhsRQ73eemsntS9pvJ6jbfMx4vhNLFUihDbNw8h3eEas8EwvgR",
+    "createB": "2MrNVxUkE96kK96xqKmyyMwtqQWyP67koVBCPNwGcr8xNpjaSvkcAXPc7BbwJHZMMcPjHLsXjtWnQwGk6zpMbkUi",
+    "pause": "33euCKHyziqYDYs6hSiSuWszLRte4B5i4yLAgyNLNfWTzW6dd7XPm6Zgra46XC4LBP2QiotJqE5pVHPsQWKHkkhy",
+    "close": "3VbSB6rEZYJeU3H9n9e7uxz1vfFCXdzDkiuer7ASdphf7o67s6ETgYGZJDkecF5E4VfsneHWDEqQw2PPBznkZQfg",
+    "unpause": "M9b2GKL7XEc9nNMYBrje8WfMWSKvZeHHL8msQkjY2QWiYFvF7Hv4RjQXTHgWvxVSq7MVknk28VzjuaQnHL88d5k",
+    "recreate": "u3iPKxz98wccmEqxo615C9UL9UNP7jxf9Mf4D9muJa96Bu5faakZGGZaSFBoBjmEvZqxWoT9qttbtMs4qyL61aU"
+  }
+}
